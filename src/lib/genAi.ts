@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import { GoogleGenAI } from '@google/genai'
 import type { ResumeData, ExperienceEntry, EducationEntry } from './resumeSchema'
 import { isResumeData } from './resumeSchema'
 
@@ -84,15 +84,13 @@ function checkIntegrity(original: ResumeData, adapted: ResumeData): void {
   })
 }
 
-let _client: GoogleGenerativeAI | null = null
+let _client: GoogleGenAI | null = null
 
-function getClient(): GoogleGenerativeAI {
+function getClient(): GoogleGenAI {
   if (!_client) {
     const apiKey = process.env.GOOGLE_GENAI_API_KEY
-    if (!apiKey) {
-      throw new Error('GOOGLE_GENAI_API_KEY environment variable is not set.')
-    }
-    _client = new GoogleGenerativeAI(apiKey)
+    if (!apiKey) throw new Error('GOOGLE_GENAI_API_KEY is not set.')
+    _client = new GoogleGenAI({ apiKey })
   }
   return _client
 }
@@ -106,22 +104,13 @@ export async function adaptResume(
 
   let responseText: string
   try {
-    const model = client.getGenerativeModel({ model: 'gemini-1.5-flash' })
-    const response = await model.generateContent({
-      systemInstruction: SYSTEM_INSTRUCTION,
-      contents: [
-        {
-          role: 'user',
-          parts: [
-            {
-              text: userMessage,
-            },
-          ],
-        },
-      ],
+    const response = await client.models.generateContent({
+      model: 'gemini-2.0-flash',
+      config: { systemInstruction: SYSTEM_INSTRUCTION },
+      contents: [{ role: 'user', parts: [{ text: userMessage }] }],
     })
 
-    responseText = response.response.text() ?? ''
+    responseText = response.text ?? ''
     if (!responseText) {
       throw new Error('No text returned from Gemini API.')
     }
