@@ -1,4 +1,4 @@
-import { VertexAI } from '@google-cloud/vertexai'
+import { GoogleGenAI } from '@google/genai'
 import type { ResumeData, ExperienceEntry, EducationEntry } from './resumeSchema'
 import { isResumeData } from './resumeSchema'
 
@@ -84,43 +84,58 @@ function checkIntegrity(original: ResumeData, adapted: ResumeData): void {
   })
 }
 
-let _model: ReturnType<InstanceType<typeof VertexAI>['getGenerativeModel']> | null = null
+let _client: GoogleGenAI | null = null
 
-function getModel() {
-  if (!_model) {
-    const vertexAI = new VertexAI({
-      project: process.env.GOOGLE_CLOUD_PROJECT!,
-      location: process.env.GOOGLE_CLOUD_LOCATION ?? 'us-central1',
-    })
-    _model = vertexAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-      systemInstruction: {
-        role: 'system',
-        parts: [{ text: SYSTEM_INSTRUCTION }],
-      },
+function getClient(): GoogleGenAI {
+  if (!_client) {
+    const apiKey = process.env.GOOGLE_GENAI_API_KEY
+    if (!apiKey) {
+      throw new Error('GOOGLE_GENAI_API_KEY environment variable is not set.')
+    }
+    _client = new GoogleGenAI({
+      apiKey,
     })
   }
-  return _model
+  return _client
 }
 
 export async function adaptResume(
   originalResume: ResumeData,
   jobDescription: string
 ): Promise<ResumeData> {
-  const model = getModel()
+  const client = getClient()
   const userMessage = buildUserMessage(originalResume, jobDescription)
 
   let responseText: string
   try {
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+    const model = client.getGenerativeModel({ model: 'gemini-1.5-flash' })
+    const response = await model.generateContent({
+      systemInstruction: SYSTEM_INSTRUCTION,
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            {
+              text: userMessage,
+            },
+          ],
+        },
+      ],
     })
-    const candidate = result.response.candidates?.[0]
-    if (!candidate) throw new Error('No candidates returned from Vertex AI.')
-    responseText = candidate.content.parts[0].text ?? ''
+
+    if (!response.candidates || response.candidates.length === 0) {
+      throw new Error('No candidates returned from Gemini API.')
+    }
+
+    const content = response.candidates[0].content
+    if (!content.parts || content.parts.length === 0) {
+      throw new Error('No text parts in Gemini response.')
+    }
+
+    responseText = content.parts[0].text ?? ''
   } catch (err) {
     throw new Error(
-      `[VertexAI Error] ${err instanceof Error ? err.message : String(err)}`
+      `[Gemini Error] ${err instanceof Error ? err.message : String(err)}`
     )
   }
 
@@ -130,11 +145,11 @@ export async function adaptResume(
   try {
     parsed = JSON.parse(cleaned)
   } catch {
-    throw new Error('[VertexAI Error] AI returned invalid JSON. Please retry.')
+    throw new Error('[Gemini Error] AI returned invalid JSON. Please retry.')
   }
 
   if (!isResumeData(parsed)) {
-    throw new Error('[VertexAI Error] AI response does not match expected schema.')
+    throw new Error('[Gemini Error] AI response does not match expected schema.')
   }
 
   checkIntegrity(originalResume, parsed)

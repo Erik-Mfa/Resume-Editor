@@ -1,5 +1,5 @@
 import { parseResume } from '@/lib/parseResume'
-import { adaptResume } from '@/lib/vertexai'
+import { adaptResume } from '@/lib/genAi'
 
 export const maxDuration = 60
 
