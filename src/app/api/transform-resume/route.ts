@@ -63,7 +63,7 @@ export async function POST(request: Request): Promise<Response> {
       )
     }
     return Response.json(
-      { success: false, error: 'The AI service is unavailable. Please try again.' },
+      { success: false, error: message },
       { status: 502 }
     )
   }
