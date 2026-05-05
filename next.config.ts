@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '10mb',
     },
   },
-  serverExternalPackages: ['pdf-parse', 'mammoth', 'canvas'],
+  serverExternalPackages: ['pdf-parse', 'mammoth', 'canvas', '@react-pdf/renderer'],
   output: 'standalone',
 }
 
