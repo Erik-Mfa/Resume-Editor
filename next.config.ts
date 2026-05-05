@@ -1,0 +1,13 @@
+import type { NextConfig } from 'next'
+
+const nextConfig: NextConfig = {
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '10mb',
+    },
+  },
+  serverExternalPackages: ['pdf-parse', 'mammoth', 'canvas'],
+  output: 'standalone',
+}
+
+export default nextConfig
