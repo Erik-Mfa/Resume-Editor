@@ -88,9 +88,11 @@ let _client: GoogleGenAI | null = null
 
 function getClient(): GoogleGenAI {
   if (!_client) {
-    const apiKey = process.env.GOOGLE_GENAI_API_KEY
-    if (!apiKey) throw new Error('GOOGLE_GENAI_API_KEY is not set.')
-    _client = new GoogleGenAI({ apiKey })
+    _client = new GoogleGenAI({
+      vertexai: true,
+      project: process.env.GOOGLE_CLOUD_PROJECT,
+      location: process.env.GOOGLE_CLOUD_LOCATION ?? 'us-central1',
+    })
   }
   return _client
 }
