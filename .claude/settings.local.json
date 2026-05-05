@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(gcloud config *)",
+      "Bash(gcloud services *)",
+      "Bash(gcloud iam *)",
+      "Bash(gcloud projects *)",
+      "Bash(python3 -c \"import json,sys; p=json.load\\(sys.stdin\\); [print\\(b['role'], b['members']\\) for b in p.get\\('bindings',[]\\) if any\\('compute' in m or 'github' in m for m in b['members']\\)]\")",
+      "Bash(node -e \"const d=require\\('fs'\\).readFileSync\\('/dev/stdin','utf8'\\); const p=JSON.parse\\(d\\); p.bindings.filter\\(b=>b.members.some\\(m=>m.includes\\('compute'\\)||m.includes\\('github'\\)\\)\\).forEach\\(b=>console.log\\(b.role, b.members\\)\\)\")"
     ]
   }
 }
