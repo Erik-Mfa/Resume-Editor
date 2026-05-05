@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai'
+import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { ResumeData, ExperienceEntry, EducationEntry } from './resumeSchema'
 import { isResumeData } from './resumeSchema'
 
@@ -84,17 +84,15 @@ function checkIntegrity(original: ResumeData, adapted: ResumeData): void {
   })
 }
 
-let _client: GoogleGenAI | null = null
+let _client: GoogleGenerativeAI | null = null
 
-function getClient(): GoogleGenAI {
+function getClient(): GoogleGenerativeAI {
   if (!_client) {
     const apiKey = process.env.GOOGLE_GENAI_API_KEY
     if (!apiKey) {
       throw new Error('GOOGLE_GENAI_API_KEY environment variable is not set.')
     }
-    _client = new GoogleGenAI({
-      apiKey,
-    })
+    _client = new GoogleGenerativeAI(apiKey)
   }
   return _client
 }
@@ -123,16 +121,10 @@ export async function adaptResume(
       ],
     })
 
-    if (!response.candidates || response.candidates.length === 0) {
-      throw new Error('No candidates returned from Gemini API.')
+    responseText = response.response.text() ?? ''
+    if (!responseText) {
+      throw new Error('No text returned from Gemini API.')
     }
-
-    const content = response.candidates[0].content
-    if (!content.parts || content.parts.length === 0) {
-      throw new Error('No text parts in Gemini response.')
-    }
-
-    responseText = content.parts[0].text ?? ''
   } catch (err) {
     throw new Error(
       `[Gemini Error] ${err instanceof Error ? err.message : String(err)}`
