@@ -1,4 +1,3 @@
-import { createElement as h } from 'react'
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
 import type { ResumeData } from '@/lib/resumeSchema'
 
@@ -82,93 +81,65 @@ interface ResumePdfDocumentProps {
 
 export function ResumePdfDocument({ resumeData }: ResumePdfDocumentProps) {
   const { personalInfo, summary, experience, education, skills } = resumeData
+  const contactParts = [personalInfo.email, personalInfo.phone, personalInfo.linkedin].filter(Boolean)
 
-  const contactParts = [personalInfo.email, personalInfo.phone, personalInfo.linkedin].filter(
-    Boolean
-  )
+  return (
+    <Document>
+      <Page size="LETTER" style={styles.page}>
+        <View style={styles.header}>
+          <Text style={styles.name}>{personalInfo.name}</Text>
+          <Text style={styles.contactLine}>{contactParts.join('  |  ')}</Text>
+        </View>
 
-  return h(
-    Document,
-    null,
-    h(
-      Page,
-      { size: 'LETTER', style: styles.page },
+        <View style={styles.divider} />
 
-      // Header
-      h(
-        View,
-        { style: styles.header },
-        h(Text, { style: styles.name }, personalInfo.name),
-        h(Text, { style: styles.contactLine }, contactParts.join('  |  '))
-      ),
-      h(View, { style: styles.divider }),
+        {summary && (
+          <View style={styles.section}>
+            <Text style={styles.sectionHeader}>Professional Summary</Text>
+            <Text style={styles.bodyText}>{summary}</Text>
+          </View>
+        )}
 
-      // Professional Summary
-      summary
-        ? h(
-            View,
-            { style: styles.section },
-            h(Text, { style: styles.sectionHeader }, 'Professional Summary'),
-            h(Text, { style: styles.bodyText }, summary)
-          )
-        : null,
+        {experience.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionHeader}>Experience</Text>
+            {experience.map((entry, i) => (
+              <View key={i} style={styles.jobBlock}>
+                <View style={styles.jobTitleRow}>
+                  <Text style={styles.jobRole}>{entry.role}</Text>
+                  <Text style={styles.jobDates}>{entry.dates}</Text>
+                </View>
+                <Text style={styles.jobCompany}>{entry.company}</Text>
+                {entry.bullets.map((bullet, j) => (
+                  <Text key={j} style={styles.bullet}>{'• ' + bullet}</Text>
+                ))}
+              </View>
+            ))}
+          </View>
+        )}
 
-      // Experience
-      experience.length > 0
-        ? h(
-            View,
-            { style: styles.section },
-            h(Text, { style: styles.sectionHeader }, 'Experience'),
-            ...experience.map((entry, i) =>
-              h(
-                View,
-                { key: i, style: styles.jobBlock },
-                h(
-                  View,
-                  { style: styles.jobTitleRow },
-                  h(Text, { style: styles.jobRole }, entry.role),
-                  h(Text, { style: styles.jobDates }, entry.dates)
-                ),
-                h(Text, { style: styles.jobCompany }, entry.company),
-                ...entry.bullets.map((bullet, j) =>
-                  h(Text, { key: j, style: styles.bullet }, '• ' + bullet)
-                )
-              )
-            )
-          )
-        : null,
+        {education.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionHeader}>Education</Text>
+            {education.map((entry, i) => (
+              <View key={i} style={styles.educationBlock}>
+                <View style={styles.jobTitleRow}>
+                  <Text style={styles.jobRole}>{entry.degree}</Text>
+                  <Text style={styles.jobDates}>{entry.dates}</Text>
+                </View>
+                <Text style={styles.jobCompany}>{entry.institution}</Text>
+              </View>
+            ))}
+          </View>
+        )}
 
-      // Education
-      education.length > 0
-        ? h(
-            View,
-            { style: styles.section },
-            h(Text, { style: styles.sectionHeader }, 'Education'),
-            ...education.map((entry, i) =>
-              h(
-                View,
-                { key: i, style: styles.educationBlock },
-                h(
-                  View,
-                  { style: styles.jobTitleRow },
-                  h(Text, { style: styles.jobRole }, entry.degree),
-                  h(Text, { style: styles.jobDates }, entry.dates)
-                ),
-                h(Text, { style: styles.jobCompany }, entry.institution)
-              )
-            )
-          )
-        : null,
-
-      // Skills
-      skills.length > 0
-        ? h(
-            View,
-            { style: styles.section },
-            h(Text, { style: styles.sectionHeader }, 'Skills'),
-            h(Text, { style: styles.bodyText }, skills.join('  •  '))
-          )
-        : null
-    )
+        {skills.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionHeader}>Skills</Text>
+            <Text style={styles.bodyText}>{skills.join('  •  ')}</Text>
+          </View>
+        )}
+      </Page>
+    </Document>
   )
 }
