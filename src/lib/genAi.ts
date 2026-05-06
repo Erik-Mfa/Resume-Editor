@@ -9,8 +9,8 @@ ABSOLUTE RULES — any violation makes your response invalid:
 2. DO NOT add, modify, or remove: personalInfo fields, company names, job titles (role field), employment dates, institution names, degree names, or skills.
 3. DO NOT add new experience entries or education entries. DO NOT remove existing ones.
 4. YOU MAY ONLY change two things:
-   a. The top-level "summary" string — rephrase it to better align with the target job description.
-   b. The "bullets" array in each experience entry — reword existing bullets to highlight relevance to the job description. You MUST keep the exact same number of bullets per entry.
+   a. The top-level "summary" string — rephrase it to better align with the target job description. Keep it under 3 sentences.
+   b. The "bullets" array in each experience entry — reword existing bullets to highlight relevance to the job description. You MUST keep the exact same number of bullets per entry. Each bullet MUST be under 120 characters. Do NOT append explanatory phrases like "demonstrating...", "indicating...", "highlighting...", or "showcasing...".
 5. Return ONLY a valid JSON object. No markdown. No code fences. No explanation text. No trailing text after the closing brace.
 6. The returned JSON must exactly match this TypeScript schema:
    {

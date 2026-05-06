@@ -4,51 +4,51 @@ import type { ResumeData } from '@/lib/resumeSchema'
 function buildStyles(fontFamily: string) {
   return StyleSheet.create({
     page: {
-      paddingTop: 54,
-      paddingBottom: 54,
-      paddingLeft: 64,
-      paddingRight: 64,
-      fontSize: 10,
+      paddingTop: 36,
+      paddingBottom: 36,
+      paddingLeft: 48,
+      paddingRight: 48,
+      fontSize: 9,
       fontFamily,
     },
     header: {
       alignItems: 'center',
-      marginBottom: 4,
-    },
-    name: {
-      fontSize: 16,
-      fontWeight: 700,
       marginBottom: 3,
     },
+    name: {
+      fontSize: 14,
+      fontWeight: 700,
+      marginBottom: 2,
+    },
     contactLine: {
-      fontSize: 9,
+      fontSize: 8.5,
       marginBottom: 1,
     },
     headerDivider: {
-      borderBottomWidth: 1.5,
+      borderBottomWidth: 1,
       borderBottomColor: '#000000',
-      marginTop: 6,
-      marginBottom: 8,
+      marginTop: 4,
+      marginBottom: 5,
     },
     sectionHeaderWrap: {
-      borderTopWidth: 1,
-      borderBottomWidth: 1,
+      borderTopWidth: 0.75,
+      borderBottomWidth: 0.75,
       borderColor: '#000000',
-      paddingTop: 2,
-      paddingBottom: 2,
-      marginBottom: 6,
-      marginTop: 2,
+      paddingTop: 1,
+      paddingBottom: 1,
+      marginBottom: 4,
+      marginTop: 1,
     },
     sectionHeader: {
-      fontSize: 11,
+      fontSize: 10,
       fontWeight: 700,
       textAlign: 'center',
     },
     section: {
-      marginBottom: 10,
+      marginBottom: 6,
     },
     entryBlock: {
-      marginBottom: 7,
+      marginBottom: 5,
     },
     entryTopRow: {
       flexDirection: 'row',
@@ -56,11 +56,14 @@ function buildStyles(fontFamily: string) {
     },
     entryCompany: {
       fontWeight: 700,
-      fontSize: 10,
+      fontSize: 9,
+      flex: 1,
     },
     entryLocation: {
       fontStyle: 'italic',
-      fontSize: 10,
+      fontSize: 9,
+      flexShrink: 0,
+      textAlign: 'right',
     },
     entryBottomRow: {
       flexDirection: 'row',
@@ -69,25 +72,28 @@ function buildStyles(fontFamily: string) {
     },
     entryRole: {
       fontWeight: 700,
-      fontSize: 10,
+      fontSize: 9,
+      flex: 1,
     },
     entryDates: {
-      fontSize: 10,
+      fontSize: 9,
+      flexShrink: 0,
+      textAlign: 'right',
     },
     bullet: {
-      marginLeft: 12,
-      marginBottom: 2,
-      lineHeight: 1.3,
-      fontSize: 10,
+      marginLeft: 10,
+      marginBottom: 1,
+      lineHeight: 1.25,
+      fontSize: 9,
     },
     bodyText: {
-      lineHeight: 1.4,
-      fontSize: 10,
+      lineHeight: 1.35,
+      fontSize: 9,
     },
     skillsText: {
       textAlign: 'center',
-      lineHeight: 1.4,
-      fontSize: 10,
+      lineHeight: 1.35,
+      fontSize: 9,
     },
   })
 }
