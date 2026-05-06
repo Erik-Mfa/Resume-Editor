@@ -14,11 +14,12 @@ ABSOLUTE RULES — any violation makes your response invalid:
 5. Return ONLY a valid JSON object. No markdown. No code fences. No explanation text. No trailing text after the closing brace.
 6. The returned JSON must exactly match this TypeScript schema:
    {
-     "personalInfo": { "name": string, "email": string, "phone": string, "linkedin": string },
+     "personalInfo": { "name": string, "email": string, "phone": string, "linkedin": string, "address"?: string, "website"?: string, "github"?: string },
      "summary": string,
-     "experience": Array<{ "company": string, "role": string, "dates": string, "bullets": string[] }>,
-     "education": Array<{ "institution": string, "degree": string, "dates": string }>,
-     "skills": string[]
+     "experience": Array<{ "company": string, "role": string, "dates": string, "location"?: string, "bullets": string[] }>,
+     "education": Array<{ "institution": string, "degree": string, "dates": string, "location"?: string }>,
+     "skills": string[],
+     "fontFamily"?: string
    }`
 
 function buildUserMessage(originalResume: ResumeData, jobDescription: string): string {
@@ -45,7 +46,10 @@ function checkIntegrity(original: ResumeData, adapted: ResumeData): void {
     pi.name !== api.name ||
     pi.email !== api.email ||
     pi.phone !== api.phone ||
-    pi.linkedin !== api.linkedin
+    pi.linkedin !== api.linkedin ||
+    pi.address !== api.address ||
+    pi.website !== api.website ||
+    pi.github !== api.github
   ) {
     throw new Error('AI integrity violation: personalInfo fields were modified.')
   }
@@ -55,7 +59,7 @@ function checkIntegrity(original: ResumeData, adapted: ResumeData): void {
   }
   original.experience.forEach((orig: ExperienceEntry, i: number) => {
     const ad = adapted.experience[i]
-    if (orig.company !== ad.company || orig.role !== ad.role || orig.dates !== ad.dates) {
+    if (orig.company !== ad.company || orig.role !== ad.role || orig.dates !== ad.dates || orig.location !== ad.location) {
       throw new Error(
         `AI integrity violation: protected fields changed in experience[${i}].`
       )
@@ -75,13 +79,18 @@ function checkIntegrity(original: ResumeData, adapted: ResumeData): void {
     if (
       orig.institution !== ad.institution ||
       orig.degree !== ad.degree ||
-      orig.dates !== ad.dates
+      orig.dates !== ad.dates ||
+      orig.location !== ad.location
     ) {
       throw new Error(
         `AI integrity violation: protected fields changed in education[${i}].`
       )
     }
   })
+
+  if (original.fontFamily !== adapted.fontFamily) {
+    throw new Error('AI integrity violation: fontFamily was modified.')
+  }
 }
 
 let _client: GoogleGenAI | null = null

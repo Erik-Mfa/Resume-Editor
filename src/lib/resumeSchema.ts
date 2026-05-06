@@ -3,6 +3,9 @@ export interface PersonalInfo {
   email: string
   phone: string
   linkedin: string
+  address?: string
+  website?: string
+  github?: string
 }
 
 export interface ExperienceEntry {
@@ -10,12 +13,14 @@ export interface ExperienceEntry {
   role: string
   dates: string
   bullets: string[]
+  location?: string
 }
 
 export interface EducationEntry {
   institution: string
   degree: string
   dates: string
+  location?: string
 }
 
 export interface ResumeData {
@@ -24,6 +29,7 @@ export interface ResumeData {
   experience: ExperienceEntry[]
   education: EducationEntry[]
   skills: string[]
+  fontFamily?: string
 }
 
 export function isResumeData(obj: unknown): obj is ResumeData {

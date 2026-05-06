@@ -1,5 +1,6 @@
 import { parseResume } from '@/lib/parseResume'
 import { adaptResume } from '@/lib/genAi'
+import { detectFont } from '@/lib/detectFont'
 
 export const maxDuration = 60
 
@@ -40,7 +41,10 @@ export async function POST(request: Request): Promise<Response> {
 
   let parsedResume
   try {
+    const arrayBuffer = await resumeFile.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
     parsedResume = await parseResume(resumeFile)
+    parsedResume.fontFamily = detectFont(buffer)
   } catch (err) {
     return Response.json(
       {

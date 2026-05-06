@@ -48,24 +48,42 @@ function extractPersonalInfo(lines: string[]) {
   const emailRegex = /[\w.+\-]+@[\w\-]+\.[a-z]{2,}/i
   const phoneRegex = /[\+]?[(]?[0-9]{3}[)]?[\s.\-]?[0-9]{3}[\s.\-]?[0-9]{4,6}/
   const linkedinRegex = /linkedin\.com\/in\/[\w\-]+/i
+  const githubRegex = /github\.com\/[\w\-]+/i
+  const websiteRegex = /(?:https?:\/\/)?(?:www\.)?([a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?\.(?:com|io|dev|app|co|net|org))\b/i
+  const addressRegex = /•?\s*([A-Z][a-z]+(?:[\s,]+[A-Z][a-z]+)*,\s*[A-Z]{2}(?:\s*,\s*[A-Z]\.[A-Z]\.?)?)\s*•?/
 
   let name = ''
   let email = ''
   let phone = ''
   let linkedin = ''
+  let github = ''
+  let website = ''
+  let address = ''
 
-  const header = lines.slice(0, 8)
+  const header = lines.slice(0, 10)
 
   for (const line of header) {
-    if (!email && emailRegex.test(line)) {
-      email = line.match(emailRegex)![0]
-    }
-    if (!phone && phoneRegex.test(line)) {
-      phone = line.match(phoneRegex)![0]
-    }
+    if (!email && emailRegex.test(line)) email = line.match(emailRegex)![0]
+    if (!phone && phoneRegex.test(line)) phone = line.match(phoneRegex)![0]
     if (!linkedin && linkedinRegex.test(line)) {
       const match = line.match(linkedinRegex)
       linkedin = match ? `https://${match[0]}` : ''
+    }
+    if (!github && githubRegex.test(line)) {
+      const match = line.match(githubRegex)
+      github = match ? match[0] : ''
+    }
+    if (!address && addressRegex.test(line)) {
+      const match = line.match(addressRegex)
+      address = match ? match[1].trim() : ''
+    }
+  }
+
+  // Extract website: a bare domain that isn't email/linkedin/github
+  for (const line of header) {
+    if (!website && websiteRegex.test(line) && !linkedinRegex.test(line) && !githubRegex.test(line) && !emailRegex.test(line)) {
+      const match = line.match(websiteRegex)
+      if (match) website = match[0].replace(/^https?:\/\//, '')
     }
   }
 
@@ -75,6 +93,7 @@ function extractPersonalInfo(lines: string[]) {
       !emailRegex.test(line) &&
       !phoneRegex.test(line) &&
       !linkedinRegex.test(line) &&
+      !githubRegex.test(line) &&
       line.length > 2
     ) {
       name = line
@@ -82,7 +101,7 @@ function extractPersonalInfo(lines: string[]) {
     }
   }
 
-  return { name, email, phone, linkedin }
+  return { name, email, phone, linkedin, ...(address && { address }), ...(website && { website }), ...(github && { github }) }
 }
 
 const SECTION_PATTERNS = {
@@ -128,6 +147,16 @@ function splitIntoSections(lines: string[]) {
 const DATE_PATTERN =
   /(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[\s,]+\d{4}|\d{4}\s*[–\-]\s*(\d{4}|present|current)/i
 
+// Splits "COMPANY NAME Location, Country" into { company, location }
+// Company is assumed to be the leading ALL-CAPS or short token(s), location is mixed-case
+function splitCompanyLocation(line: string): { company: string; location: string } {
+  // Match: all-caps word(s) followed by a mixed-case location (e.g. "CHAPADEVS Riverside, New Jersey")
+  const match = line.match(/^([A-ZÁÉÍÓÚ\s&,\.]+?)\s{2,}([A-Z][a-z].+)$/) ||
+    line.match(/^([A-Z][A-Z\s&,\.]{2,}?)\s+([A-Z][a-z].+)$/)
+  if (match) return { company: match[1].trim(), location: match[2].trim() }
+  return { company: line.trim(), location: '' }
+}
+
 function parseExperience(lines: string[]): ExperienceEntry[] {
   const entries: ExperienceEntry[] = []
   let current: Partial<ExperienceEntry> | null = null
@@ -137,10 +166,10 @@ function parseExperience(lines: string[]): ExperienceEntry[] {
 
     if (DATE_PATTERN.test(line)) {
       if (current) entries.push(finalizeEntry(current))
-      // Dates line found — role/company should be in the 1-2 preceding lines
       const role = i >= 1 ? lines[i - 1] : ''
-      const company = i >= 2 && !DATE_PATTERN.test(lines[i - 2]) ? lines[i - 2] : ''
-      current = { company, role, dates: line, bullets: [] }
+      const companyLine = i >= 2 && !DATE_PATTERN.test(lines[i - 2]) ? lines[i - 2] : ''
+      const { company, location } = splitCompanyLocation(companyLine)
+      current = { company, role, dates: line, location: location || undefined, bullets: [] }
     } else if (current && /^[•\-\*]/.test(line)) {
       const bullet = line.replace(/^[•\-\*]\s*/, '').trim()
       if (bullet) current.bullets = [...(current.bullets ?? []), bullet]
@@ -157,19 +186,21 @@ function finalizeEntry(e: Partial<ExperienceEntry>): ExperienceEntry {
     role: e.role ?? '',
     dates: e.dates ?? '',
     bullets: e.bullets ?? [],
+    ...(e.location && { location: e.location }),
   }
 }
 
 function parseEducation(lines: string[]) {
-  const entries: { institution: string; degree: string; dates: string }[] = []
+  const entries: { institution: string; degree: string; dates: string; location?: string }[] = []
   let i = 0
 
   while (i < lines.length) {
     const line = lines[i]
     if (DATE_PATTERN.test(line)) {
       const degree = i >= 1 ? lines[i - 1] : ''
-      const institution = i >= 2 ? lines[i - 2] : ''
-      entries.push({ institution, degree, dates: line })
+      const institutionLine = i >= 2 ? lines[i - 2] : ''
+      const { company: institution, location } = splitCompanyLocation(institutionLine)
+      entries.push({ institution, degree, dates: line, ...(location && { location }) })
     }
     i++
   }

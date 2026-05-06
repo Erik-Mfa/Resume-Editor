@@ -2,7 +2,7 @@
 A Next.js application to adapt resumes (Harvard IT Standard) to job descriptions using Google Vertex AI.
 
 ## Technical Stack
-- **Framework:** Next.js 14+ (App Router, TypeScript)
+- **Framework:** Next.js (App Router, TypeScript)
 - **AI:** Google Vertex AI + Generative AI SDK 
 - **File Handling:** `pdf-parse`, `mammoth` (Import)
 - **Export:** `@react-pdf/renderer` (Harvard IT Layout)

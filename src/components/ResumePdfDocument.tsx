@@ -1,79 +1,96 @@
 import { Document, Page, Text, View, StyleSheet } from '@react-pdf/renderer'
 import type { ResumeData } from '@/lib/resumeSchema'
 
-const styles = StyleSheet.create({
-  page: {
-    paddingTop: 72,
-    paddingBottom: 72,
-    paddingLeft: 72,
-    paddingRight: 72,
-    fontSize: 10.5,
-    fontFamily: 'Helvetica',
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  name: {
-    fontSize: 18,
-    fontFamily: 'Helvetica-Bold',
-    marginBottom: 4,
-  },
-  contactLine: {
-    fontSize: 10,
-    color: '#333333',
-  },
-  divider: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#000000',
-    marginTop: 8,
-    marginBottom: 10,
-  },
-  section: {
-    marginBottom: 14,
-  },
-  sectionHeader: {
-    fontSize: 11,
-    fontFamily: 'Helvetica-Bold',
-    borderBottomWidth: 0.5,
-    borderBottomColor: '#000000',
-    paddingBottom: 2,
-    marginBottom: 6,
-    textTransform: 'uppercase',
-  },
-  jobBlock: {
-    marginBottom: 10,
-  },
-  jobTitleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 1,
-  },
-  jobRole: {
-    fontFamily: 'Helvetica-Bold',
-    fontSize: 10.5,
-  },
-  jobDates: {
-    fontSize: 10,
-    color: '#555555',
-  },
-  jobCompany: {
-    fontFamily: 'Helvetica-Oblique',
-    fontSize: 10.5,
-    marginBottom: 3,
-  },
-  bullet: {
-    marginLeft: 8,
-    marginBottom: 3,
-    lineHeight: 1.4,
-  },
-  bodyText: {
-    lineHeight: 1.4,
-  },
-  educationBlock: {
-    marginBottom: 8,
-  },
-})
+function buildStyles(fontFamily: string) {
+  return StyleSheet.create({
+    page: {
+      paddingTop: 54,
+      paddingBottom: 54,
+      paddingLeft: 64,
+      paddingRight: 64,
+      fontSize: 10,
+      fontFamily,
+    },
+    header: {
+      alignItems: 'center',
+      marginBottom: 4,
+    },
+    name: {
+      fontSize: 16,
+      fontWeight: 700,
+      marginBottom: 3,
+    },
+    contactLine: {
+      fontSize: 9,
+      marginBottom: 1,
+    },
+    headerDivider: {
+      borderBottomWidth: 1.5,
+      borderBottomColor: '#000000',
+      marginTop: 6,
+      marginBottom: 8,
+    },
+    sectionHeaderWrap: {
+      borderTopWidth: 1,
+      borderBottomWidth: 1,
+      borderColor: '#000000',
+      paddingTop: 2,
+      paddingBottom: 2,
+      marginBottom: 6,
+      marginTop: 2,
+    },
+    sectionHeader: {
+      fontSize: 11,
+      fontWeight: 700,
+      textAlign: 'center',
+    },
+    section: {
+      marginBottom: 10,
+    },
+    entryBlock: {
+      marginBottom: 7,
+    },
+    entryTopRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+    },
+    entryCompany: {
+      fontWeight: 700,
+      fontSize: 10,
+    },
+    entryLocation: {
+      fontStyle: 'italic',
+      fontSize: 10,
+    },
+    entryBottomRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 2,
+    },
+    entryRole: {
+      fontWeight: 700,
+      fontSize: 10,
+    },
+    entryDates: {
+      fontSize: 10,
+    },
+    bullet: {
+      marginLeft: 12,
+      marginBottom: 2,
+      lineHeight: 1.3,
+      fontSize: 10,
+    },
+    bodyText: {
+      lineHeight: 1.4,
+      fontSize: 10,
+    },
+    skillsText: {
+      textAlign: 'center',
+      lineHeight: 1.4,
+      fontSize: 10,
+    },
+  })
+}
 
 interface ResumePdfDocumentProps {
   resumeData: ResumeData
@@ -81,35 +98,73 @@ interface ResumePdfDocumentProps {
 
 export function ResumePdfDocument({ resumeData }: ResumePdfDocumentProps) {
   const { personalInfo, summary, experience, education, skills } = resumeData
-  const contactParts = [personalInfo.email, personalInfo.phone, personalInfo.linkedin].filter(Boolean)
+  // fontFamily is pre-registered by export-pdf.ts before renderToBuffer is called
+  const fontFamily = resumeData.fontFamily ?? 'Helvetica'
+  const styles = buildStyles(fontFamily)
+
+  const contactLine1Parts = [personalInfo.address, personalInfo.email, personalInfo.phone].filter(Boolean)
+  const contactLine2Parts = [personalInfo.website, personalInfo.github, personalInfo.linkedin].filter(Boolean)
+  const contactLine1 = contactLine1Parts.map((p) => `• ${p}`).join('  ')
+  const contactLine2 = contactLine2Parts.map((p) => `• ${p}`).join('  ')
 
   return (
     <Document>
       <Page size="LETTER" style={styles.page}>
+        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.name}>{personalInfo.name}</Text>
-          <Text style={styles.contactLine}>{contactParts.join('  |  ')}</Text>
+          {contactLine1 && <Text style={styles.contactLine}>{contactLine1}</Text>}
+          {contactLine2 && <Text style={styles.contactLine}>{contactLine2}</Text>}
         </View>
+        <View style={styles.headerDivider} />
 
-        <View style={styles.divider} />
-
+        {/* Professional Summary */}
         {summary && (
           <View style={styles.section}>
-            <Text style={styles.sectionHeader}>Professional Summary</Text>
+            <View style={styles.sectionHeaderWrap}>
+              <Text style={styles.sectionHeader}>Professional summary</Text>
+            </View>
             <Text style={styles.bodyText}>{summary}</Text>
           </View>
         )}
 
+        {/* Education — appears before Experience to match original layout */}
+        {education.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeaderWrap}>
+              <Text style={styles.sectionHeader}>Education</Text>
+            </View>
+            {education.map((entry, i) => (
+              <View key={i} style={styles.entryBlock}>
+                <View style={styles.entryTopRow}>
+                  <Text style={styles.entryCompany}>{entry.institution}</Text>
+                  {entry.location && <Text style={styles.entryLocation}>{entry.location}</Text>}
+                </View>
+                <View style={styles.entryBottomRow}>
+                  <Text style={styles.entryRole}>{entry.degree}</Text>
+                  <Text style={styles.entryDates}>{entry.dates}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Experience */}
         {experience.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionHeader}>Experience</Text>
+            <View style={styles.sectionHeaderWrap}>
+              <Text style={styles.sectionHeader}>Experience</Text>
+            </View>
             {experience.map((entry, i) => (
-              <View key={i} style={styles.jobBlock}>
-                <View style={styles.jobTitleRow}>
-                  <Text style={styles.jobRole}>{entry.role}</Text>
-                  <Text style={styles.jobDates}>{entry.dates}</Text>
+              <View key={i} style={styles.entryBlock}>
+                <View style={styles.entryTopRow}>
+                  <Text style={styles.entryCompany}>{entry.company}</Text>
+                  {entry.location && <Text style={styles.entryLocation}>{entry.location}</Text>}
                 </View>
-                <Text style={styles.jobCompany}>{entry.company}</Text>
+                <View style={styles.entryBottomRow}>
+                  <Text style={styles.entryRole}>{entry.role}</Text>
+                  <Text style={styles.entryDates}>{entry.dates}</Text>
+                </View>
                 {entry.bullets.map((bullet, j) => (
                   <Text key={j} style={styles.bullet}>{'• ' + bullet}</Text>
                 ))}
@@ -118,25 +173,13 @@ export function ResumePdfDocument({ resumeData }: ResumePdfDocumentProps) {
           </View>
         )}
 
-        {education.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionHeader}>Education</Text>
-            {education.map((entry, i) => (
-              <View key={i} style={styles.educationBlock}>
-                <View style={styles.jobTitleRow}>
-                  <Text style={styles.jobRole}>{entry.degree}</Text>
-                  <Text style={styles.jobDates}>{entry.dates}</Text>
-                </View>
-                <Text style={styles.jobCompany}>{entry.institution}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
+        {/* Skills */}
         {skills.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionHeader}>Skills</Text>
-            <Text style={styles.bodyText}>{skills.join('  •  ')}</Text>
+            <View style={styles.sectionHeaderWrap}>
+              <Text style={styles.sectionHeader}>Skills</Text>
+            </View>
+            <Text style={styles.skillsText}>{'• ' + skills.join(' • ')}</Text>
           </View>
         )}
       </Page>
