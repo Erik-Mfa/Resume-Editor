@@ -3,13 +3,13 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Resume Pivot AI',
-  description: 'Adapt your resume to any job description using Gemini 1.5 Flash — without hallucinating.',
+  description: 'Adapt your resume to any job description using Gemini — without hallucinating.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="bg-gray-50 text-gray-900 antialiased">{children}</body>
+      <body className="bg-slate-950 text-gray-900 antialiased min-h-screen">{children}</body>
     </html>
   )
 }
