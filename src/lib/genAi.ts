@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai'
+import { validateResumeSchema, type ResumeSchema } from './resumeSchema'
 
 export interface TextReplacement {
   old: string
@@ -135,4 +136,89 @@ export async function getReplacements(
   }
 
   return validateReplacements(resumeText, parsed)
+}
+
+const SCHEMA_SYSTEM_INSTRUCTION = `You are a professional resume parser and adapter.
+
+You receive the raw extracted text of a resume (which may have come from any layout: single-column, two-column, sidebar, etc.) and a target job description. The text may have section ordering issues from PDF extraction. Your job is to parse the resume into a normalized structure AND adapt the summary, bullets, and skills to the target job in the same pass.
+
+PARSING RULES:
+- Identify the candidate's name, contact info, professional summary, education, work experience, and skills, regardless of how the source labels them.
+- Map any synonym headings to the standard sections:
+  * "About Me" / "Professional Profile" / "Summary" / "Objective" → summary
+  * "Work Experience" / "Professional Experience" / "Employment" → experience
+  * "Core Skills" / "Technical Skills" / "Skills" → skills
+  * "Education" / "Academic Background" → education
+- Anything that does not fit (Projects, Certificates, Certifications, References, Contact Info, Awards) goes in "extras". Drop "References — available on request" entirely. Drop standalone "Contact Info" sections (those data points already feed the header).
+- For each experience entry: separate company, location, job title, dates, and bullet achievements. Even if the source crammed them onto one line ("Sunshine Solutions, London | Jan 2021 – Present"), split them into the right fields.
+- Same for education: school, location, degree, dates.
+
+ADAPTATION RULES (apply while filling the schema):
+- Summary: rewrite to lead with what the job description cares about most. Aim for ~50% repositioning while staying grounded in the candidate's real background. Do not invent experience.
+- Bullets: keep the same number per job. Reframe around impact and ownership relevant to the JD. Use strong verbs (Designed, Architected, Built, Shipped, Owned, Led, Deployed). Each bullet under 120 characters. Do not append "demonstrating…", "indicating…", "highlighting…", "showcasing…". Do not invent achievements.
+- Skills: start with skills explicitly listed in the JD (required first, then preferred), but only those the candidate plausibly has based on the resume. Then append the most relevant remaining candidate skills not in the JD. Keep the total list concise — aim for roughly 15–20 skills. Prioritize technical skills and tools; drop generic soft skills, OS/environment tools, and language proficiencies.
+- NEVER change: candidate name, contact info, company names, job titles, dates, locations, school names, degrees.
+
+OUTPUT SHAPE — return ONLY this JSON object, no markdown, no commentary:
+{
+  "name": string,
+  "contact": { "line1": string, "line2"?: string },
+  "summary": string,
+  "education": [{ "school": string, "location"?: string, "degree": string, "dates"?: string }],
+  "experience": [{ "company": string, "location"?: string, "title": string, "dates"?: string, "bullets": string[] }],
+  "skills": string[],
+  "extras"?: [{ "heading": string, "bullets": string[] }]
+}
+
+CONTACT FORMATTING:
+- "line1" combines location, email, and phone separated by " • " (e.g. "Riverside, NJ • erik@example.com • (+1) 862-235-8352"). Omit any piece that is not present.
+- "line2" (optional) holds web links the same way (website • github • linkedin). Omit if there are none.
+
+Return ONLY the JSON object.`
+
+function buildSchemaUserMessage(resumeText: string, jobDescription: string): string {
+  return `ORIGINAL RESUME TEXT:
+${resumeText}
+
+TARGET JOB DESCRIPTION:
+${jobDescription}
+
+Return the JSON object following the schema and rules above.`
+}
+
+export async function getAdaptedResume(
+  resumeText: string,
+  jobDescription: string
+): Promise<ResumeSchema> {
+  const client = getClient()
+  const userMessage = buildSchemaUserMessage(resumeText, jobDescription)
+
+  let responseText: string
+  try {
+    const response = await client.models.generateContent({
+      model: 'gemini-2.0-flash',
+      config: { systemInstruction: SCHEMA_SYSTEM_INSTRUCTION },
+      contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+    })
+
+    responseText = response.text ?? ''
+    if (!responseText) {
+      throw new Error('No text returned from Gemini API.')
+    }
+  } catch (err) {
+    throw new Error(
+      `[Gemini Error] ${err instanceof Error ? err.message : String(err)}`
+    )
+  }
+
+  const cleaned = stripMarkdownFences(responseText)
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(cleaned)
+  } catch {
+    throw new Error('[Gemini Error] AI returned invalid JSON. Please retry.')
+  }
+
+  return validateResumeSchema(parsed)
 }

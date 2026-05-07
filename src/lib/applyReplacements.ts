@@ -5,8 +5,12 @@ import {
   Paragraph,
   TextRun,
   AlignmentType,
+  TabStopType,
+  TabStopPosition,
+  BorderStyle,
 } from 'docx'
 import type { TextReplacement } from './genAi'
+import type { ResumeSchema } from './resumeSchema'
 
 // ── DOCX in-place editing ──────────────────────────────────────────────
 
@@ -104,70 +108,212 @@ function escapeXml(text: string): string {
     .replace(/'/g, '&apos;')
 }
 
-// ── PDF → DOCX generation ─────────────────────────────────────────────
+// ── Standard-layout DOCX rendering (used for non-DOCX inputs) ─────────
 
-const SECTION_HEADERS = /^(professional\s+)?summary$|^(work\s+)?experience$|^education|^(technical\s+)?skills$|^core\s+competencies$|^objective$/i
-const BULLET_PREFIX = /^[•\-\*]\s*/
+const HEADING_FONT = 'Georgia'
+const FONT = 'Calibri'
+const RIGHT_TAB = 10800 // text area width: 12240 (letter) - 720 left - 720 right margins
 
-export async function createDocxFromText(
-  text: string,
-  replacements: TextReplacement[]
-): Promise<Buffer> {
-  let adapted = text
-  for (const { old: oldText, new: newText } of replacements) {
-    adapted = adapted.replace(oldText, newText)
+const BODY_SIZE = 20
+const NAME_SIZE = 28
+const HEADING_SIZE = 22
+
+function sectionHeading(text: string): Paragraph {
+  return new Paragraph({
+    children: [new TextRun({ text, bold: true, size: HEADING_SIZE, font: HEADING_FONT })],
+    alignment: AlignmentType.CENTER,
+    spacing: { before: 200, after: 80 },
+    border: {
+      bottom: { color: '000000', space: 1, size: 6, style: BorderStyle.SINGLE },
+    },
+  })
+}
+
+function leftRightLine(
+  left: { text: string; bold?: boolean; italic?: boolean; caps?: boolean },
+  right?: { text: string; bold?: boolean; italic?: boolean },
+  spacingAfter = 0
+): Paragraph {
+  const children = [
+    new TextRun({
+      text: left.caps ? left.text.toUpperCase() : left.text,
+      bold: left.bold,
+      italics: left.italic,
+      size: BODY_SIZE,
+      font: FONT,
+    }),
+  ]
+  if (right && right.text) {
+    children.push(new TextRun({ text: '\t', size: BODY_SIZE, font: FONT }))
+    children.push(
+      new TextRun({
+        text: right.text,
+        bold: right.bold,
+        italics: right.italic,
+        size: BODY_SIZE,
+        font: FONT,
+      })
+    )
   }
+  return new Paragraph({
+    children,
+    tabStops: [{ type: TabStopType.RIGHT, position: RIGHT_TAB }],
+    spacing: { after: spacingAfter },
+  })
+}
 
-  const lines = adapted.split('\n').filter((l) => l.trim().length > 0)
+function bulletParagraph(text: string): Paragraph {
+  return new Paragraph({
+    children: [new TextRun({ text, size: BODY_SIZE, font: FONT })],
+    bullet: { level: 0 },
+    spacing: { after: 20 },
+  })
+}
+
+export async function renderStandardDocx(schema: ResumeSchema): Promise<Buffer> {
   const paragraphs: Paragraph[] = []
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim()
+  // Header — name
+  paragraphs.push(
+    new Paragraph({
+      children: [new TextRun({ text: schema.name, bold: true, size: NAME_SIZE, font: HEADING_FONT })],
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 280, after: 80 },
+    })
+  )
 
-    if (i === 0) {
-      // First line is the name
+  // Header — contact lines
+  paragraphs.push(
+    new Paragraph({
+      children: [new TextRun({ text: `• ${schema.contact.line1} •`, size: BODY_SIZE, font: FONT })],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: schema.contact.line2 ? 0 : 60 },
+    })
+  )
+  if (schema.contact.line2) {
+    paragraphs.push(
+      new Paragraph({
+        children: [new TextRun({ text: `• ${schema.contact.line2} •`, size: BODY_SIZE, font: FONT })],
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 60 },
+      })
+    )
+  }
+
+  // Summary
+  if (schema.summary && schema.summary.trim().length > 0) {
+    paragraphs.push(sectionHeading('Professional summary'))
+    paragraphs.push(
+      new Paragraph({
+        children: [new TextRun({ text: schema.summary, size: BODY_SIZE, font: FONT })],
+        spacing: { after: 60 },
+      })
+    )
+  }
+
+  // Education
+  if (schema.education.length > 0) {
+    paragraphs.push(sectionHeading('Education'))
+    schema.education.forEach((ed, idx) => {
       paragraphs.push(
-        new Paragraph({
-          children: [new TextRun({ text: line, bold: true, size: 28, font: 'Calibri' })],
-          alignment: AlignmentType.CENTER,
-          spacing: { after: 100 },
-        })
+        leftRightLine(
+          { text: ed.school, bold: true, caps: true },
+          ed.location ? { text: ed.location, italic: true } : undefined
+        )
       )
-    } else if (SECTION_HEADERS.test(line)) {
       paragraphs.push(
-        new Paragraph({
-          children: [new TextRun({ text: line.toUpperCase(), bold: true, size: 22, font: 'Calibri' })],
-          spacing: { before: 240, after: 120 },
-          border: { bottom: { color: '000000', space: 1, size: 6, style: 'single' as const } },
-        })
+        leftRightLine(
+          { text: ed.degree, bold: true },
+          ed.dates ? { text: ed.dates, italic: true } : undefined
+        )
       )
-    } else if (BULLET_PREFIX.test(line)) {
+      if (idx < schema.education.length - 1) {
+        paragraphs.push(
+          new Paragraph({
+            children: [new TextRun({ text: '', size: 8, font: FONT })],
+            spacing: { after: 0 },
+          })
+        )
+      }
+    })
+  }
+
+  // Experience
+  if (schema.experience.length > 0) {
+    paragraphs.push(sectionHeading('Experience'))
+    schema.experience.forEach((ex, idx) => {
       paragraphs.push(
-        new Paragraph({
-          children: [
-            new TextRun({ text: line.replace(BULLET_PREFIX, ''), size: 20, font: 'Calibri' }),
-          ],
-          bullet: { level: 0 },
-          spacing: { after: 40 },
-        })
+        leftRightLine(
+          { text: ex.company, bold: true, caps: true },
+          ex.location ? { text: ex.location, italic: true } : undefined
+        )
       )
-    } else {
       paragraphs.push(
-        new Paragraph({
-          children: [new TextRun({ text: line, size: 20, font: 'Calibri' })],
-          spacing: { after: 60 },
-        })
+        leftRightLine(
+          { text: ex.title, bold: true },
+          ex.dates ? { text: ex.dates, italic: true } : undefined,
+          60
+        )
       )
+      for (const b of ex.bullets) {
+        paragraphs.push(bulletParagraph(b))
+      }
+      if (idx < schema.experience.length - 1) {
+        paragraphs.push(
+          new Paragraph({
+            children: [new TextRun({ text: '', size: 8, font: FONT })],
+            spacing: { after: 80 },
+          })
+        )
+      }
+    })
+  }
+
+  // Skills
+  if (schema.skills.length > 0) {
+    paragraphs.push(new Paragraph({ children: [new TextRun({ text: '', font: FONT })], spacing: { after: 100 } }))
+    paragraphs.push(sectionHeading('Skills'))
+    const mid = Math.ceil(schema.skills.length / 2)
+    const toLine = (arr: string[]) => arr.map((s) => `• ${s}`).join(' ')
+    paragraphs.push(new Paragraph({
+      children: [new TextRun({ text: toLine(schema.skills.slice(0, mid)), size: BODY_SIZE, font: FONT })],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 4 },
+    }))
+    paragraphs.push(new Paragraph({
+      children: [new TextRun({ text: toLine(schema.skills.slice(mid)), size: BODY_SIZE, font: FONT })],
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 40 },
+    }))
+  }
+
+  // Extras
+  if (schema.extras) {
+    for (const extra of schema.extras) {
+      if (extra.bullets.length === 0) continue
+      paragraphs.push(sectionHeading(extra.heading))
+      for (const b of extra.bullets) {
+        paragraphs.push(bulletParagraph(b))
+      }
     }
   }
 
   const doc = new Document({
     styles: {
       default: {
-        document: { run: { font: 'Calibri', size: 20 } },
+        document: { run: { font: FONT, size: BODY_SIZE } },
       },
     },
-    sections: [{ children: paragraphs }],
+    sections: [
+      {
+        properties: {
+          page: {
+            margin: { top: 720, right: 720, bottom: 720, left: 720 },
+          },
+        },
+        children: paragraphs,
+      },
+    ],
   })
 
   const buf = await Packer.toBuffer(doc)

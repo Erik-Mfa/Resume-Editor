@@ -1,6 +1,6 @@
 import { extractText } from '@/lib/extractText'
-import { getReplacements } from '@/lib/genAi'
-import { applyToDocx, createDocxFromText } from '@/lib/applyReplacements'
+import { getReplacements, getAdaptedResume } from '@/lib/genAi'
+import { applyToDocx, renderStandardDocx } from '@/lib/applyReplacements'
 
 export const maxDuration = 60
 
@@ -55,25 +55,14 @@ export async function POST(request: Request): Promise<Response> {
     )
   }
 
-  let replacements
-  try {
-    replacements = await getReplacements(extracted.text, jobDescription.trim())
-  } catch (err) {
-    return Response.json(
-      {
-        success: false,
-        error: err instanceof Error ? err.message : 'AI service error.',
-      },
-      { status: 502 }
-    )
-  }
-
   let outputBuffer: Buffer
   try {
     if (extracted.fileType === 'docx') {
+      const replacements = await getReplacements(extracted.text, jobDescription.trim())
       outputBuffer = await applyToDocx(extracted.buffer, replacements)
     } else {
-      outputBuffer = await createDocxFromText(extracted.text, replacements)
+      const schema = await getAdaptedResume(extracted.text, jobDescription.trim())
+      outputBuffer = await renderStandardDocx(schema)
     }
   } catch (err) {
     return Response.json(
