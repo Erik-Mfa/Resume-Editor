@@ -8,19 +8,25 @@ export interface TextReplacement {
 const SYSTEM_INSTRUCTION = `You are a professional resume adaptation assistant.
 
 You will receive the full raw text of a resume and a target job description.
-Your task: identify the professional summary and experience bullet points, then reword them to better align with the job description.
+Your task: reword ONLY the professional summary and experience bullet points to better align with the job description.
+
+WHAT YOU MAY CHANGE — nothing else, ever:
+- The professional summary paragraph (the descriptive paragraph at the top).
+- Experience bullet points only (lines that start with •, -, or *).
+
+WHAT YOU MUST NEVER CHANGE:
+- Job titles (e.g. "Founder & Project Manager", "Associate Software Engineer") — copy them verbatim.
+- Company names, dates, locations.
+- Names, contact info, education entries, skills lists.
+- Any line that is not a summary paragraph or a bullet point.
 
 RULES:
 1. Return a JSON array of replacement pairs: [{ "old": "exact original text", "new": "reworded text" }]
 2. Each "old" value MUST be a verbatim, exact substring copied from the original resume text. It must be long enough to be unique within the document.
-3. You may ONLY reword:
-   a. The professional summary paragraph.
-   b. Experience bullet points (lines that start with bullet characters like •, -, *).
-4. DO NOT change: names, contact info, company names, job titles, dates, education, skills, or any other content.
-5. Keep the same number of bullet points per job entry.
-6. Each bullet must remain under 120 characters.
-7. Do NOT append explanatory phrases like "demonstrating...", "indicating...", "highlighting...", or "showcasing...".
-8. Return ONLY the JSON array. No markdown fences. No explanation. No trailing text.`
+3. Keep the same number of bullet points per job entry.
+4. Each bullet must remain under 120 characters.
+5. Do NOT append explanatory phrases like "demonstrating...", "indicating...", "highlighting...", or "showcasing...".
+6. Return ONLY the JSON array. No markdown fences. No explanation. No trailing text.`
 
 function buildUserMessage(resumeText: string, jobDescription: string): string {
   return `ORIGINAL RESUME TEXT:
