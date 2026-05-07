@@ -1,17 +1,17 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import type { ResumeData } from '@/lib/resumeSchema'
 
 type Step = 'upload' | 'processing' | 'done'
 
 export function ResumeUploader() {
   const [resumeFile, setResumeFile] = useState<File | null>(null)
   const [jobDescription, setJobDescription] = useState('')
-  const [adaptedResume, setAdaptedResume] = useState<ResumeData | null>(null)
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [step, setStep] = useState<Step>('upload')
+  const [wasPdf, setWasPdf] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -39,19 +39,22 @@ export function ResumeUploader() {
 
     setIsLoading(true)
     setStep('processing')
+    setWasPdf(resumeFile.name.endsWith('.pdf') || resumeFile.type === 'application/pdf')
 
     try {
       const res = await fetch('/api/transform-resume', {
         method: 'POST',
         body: formData,
       })
-      const json = await res.json()
 
-      if (!res.ok || !json.success) {
-        throw new Error(json.error ?? 'Unexpected error. Please try again.')
+      if (!res.ok) {
+        const json = await res.json().catch(() => null)
+        throw new Error(json?.error ?? 'Unexpected error. Please try again.')
       }
 
-      setAdaptedResume(json.data)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      setDownloadUrl(url)
       setStep('done')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong.')
@@ -61,38 +64,24 @@ export function ResumeUploader() {
     }
   }
 
-  async function handleDownload() {
-    if (!adaptedResume) return
-
-    try {
-      const res = await fetch('/api/export-pdf', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: adaptedResume }),
-      })
-
-      if (!res.ok) throw new Error('PDF generation failed.')
-
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'adapted-resume.pdf'
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not download PDF.')
-    }
+  function handleDownload() {
+    if (!downloadUrl) return
+    const a = document.createElement('a')
+    a.href = downloadUrl
+    a.download = 'adapted-resume.docx'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
   }
 
   function handleReset() {
+    if (downloadUrl) URL.revokeObjectURL(downloadUrl)
     setStep('upload')
-    setAdaptedResume(null)
+    setDownloadUrl(null)
     setResumeFile(null)
     setJobDescription('')
     setError(null)
+    setWasPdf(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
@@ -112,7 +101,7 @@ export function ResumeUploader() {
         </div>
       )}
 
-      {step === 'done' && adaptedResume ? (
+      {step === 'done' && downloadUrl ? (
         <div className="text-center space-y-6">
           <div className="flex flex-col items-center gap-2">
             <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center text-green-600 text-2xl">
@@ -123,13 +112,18 @@ export function ResumeUploader() {
               Your professional summary and experience bullets have been tailored to the job
               description. All other information is unchanged.
             </p>
+            {wasPdf && (
+              <p className="text-xs text-amber-600">
+                Your PDF was adapted and saved as a DOCX to preserve quality.
+              </p>
+            )}
           </div>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
               onClick={handleDownload}
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 py-3 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
             >
-              Download PDF
+              Download DOCX
             </button>
             <button
               onClick={handleReset}

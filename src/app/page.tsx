@@ -14,7 +14,7 @@ export default function Home() {
         </div>
         <ResumeUploader />
         <p className="mt-6 text-center text-xs text-gray-400">
-          Powered by Google Vertex AI · Harvard IT Standard formatting
+          Powered by Google Vertex AI
         </p>
       </div>
     </main>

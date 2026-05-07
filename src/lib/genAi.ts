@@ -1,35 +1,35 @@
 import { GoogleGenAI } from '@google/genai'
-import type { ResumeData, ExperienceEntry, EducationEntry } from './resumeSchema'
-import { isResumeData } from './resumeSchema'
 
-const SYSTEM_INSTRUCTION = `You are a professional resume adaptation assistant with strict integrity constraints.
+export interface TextReplacement {
+  old: string
+  new: string
+}
 
-ABSOLUTE RULES — any violation makes your response invalid:
-1. DO NOT invent, fabricate, or hallucinate any information not present in the original resume JSON.
-2. DO NOT add, modify, or remove: personalInfo fields, company names, job titles (role field), employment dates, institution names, degree names, or skills.
-3. DO NOT add new experience entries or education entries. DO NOT remove existing ones.
-4. YOU MAY ONLY change two things:
-   a. The top-level "summary" string — rephrase it to better align with the target job description. Keep it under 3 sentences.
-   b. The "bullets" array in each experience entry — reword existing bullets to highlight relevance to the job description. You MUST keep the exact same number of bullets per entry. Each bullet MUST be under 120 characters. Do NOT append explanatory phrases like "demonstrating...", "indicating...", "highlighting...", or "showcasing...".
-5. Return ONLY a valid JSON object. No markdown. No code fences. No explanation text. No trailing text after the closing brace.
-6. The returned JSON must exactly match this TypeScript schema:
-   {
-     "personalInfo": { "name": string, "email": string, "phone": string, "linkedin": string, "address"?: string, "website"?: string, "github"?: string },
-     "summary": string,
-     "experience": Array<{ "company": string, "role": string, "dates": string, "location"?: string, "bullets": string[] }>,
-     "education": Array<{ "institution": string, "degree": string, "dates": string, "location"?: string }>,
-     "skills": string[],
-     "fontFamily"?: string
-   }`
+const SYSTEM_INSTRUCTION = `You are a professional resume adaptation assistant.
 
-function buildUserMessage(originalResume: ResumeData, jobDescription: string): string {
-  return `ORIGINAL RESUME JSON:
-${JSON.stringify(originalResume, null, 2)}
+You will receive the full raw text of a resume and a target job description.
+Your task: identify the professional summary and experience bullet points, then reword them to better align with the job description.
+
+RULES:
+1. Return a JSON array of replacement pairs: [{ "old": "exact original text", "new": "reworded text" }]
+2. Each "old" value MUST be a verbatim, exact substring copied from the original resume text. It must be long enough to be unique within the document.
+3. You may ONLY reword:
+   a. The professional summary paragraph.
+   b. Experience bullet points (lines that start with bullet characters like •, -, *).
+4. DO NOT change: names, contact info, company names, job titles, dates, education, skills, or any other content.
+5. Keep the same number of bullet points per job entry.
+6. Each bullet must remain under 120 characters.
+7. Do NOT append explanatory phrases like "demonstrating...", "indicating...", "highlighting...", or "showcasing...".
+8. Return ONLY the JSON array. No markdown fences. No explanation. No trailing text.`
+
+function buildUserMessage(resumeText: string, jobDescription: string): string {
+  return `ORIGINAL RESUME TEXT:
+${resumeText}
 
 TARGET JOB DESCRIPTION:
 ${jobDescription}
 
-Adapt the resume following the strict rules above. Return only the modified JSON object.`
+Return the JSON array of replacement pairs following the rules above.`
 }
 
 function stripMarkdownFences(text: string): string {
@@ -39,58 +39,26 @@ function stripMarkdownFences(text: string): string {
     .trim()
 }
 
-function checkIntegrity(original: ResumeData, adapted: ResumeData): void {
-  const pi = original.personalInfo
-  const api = adapted.personalInfo
-  if (
-    pi.name !== api.name ||
-    pi.email !== api.email ||
-    pi.phone !== api.phone ||
-    pi.linkedin !== api.linkedin ||
-    pi.address !== api.address ||
-    pi.website !== api.website ||
-    pi.github !== api.github
-  ) {
-    throw new Error('AI integrity violation: personalInfo fields were modified.')
+function validateReplacements(resumeText: string, replacements: unknown): TextReplacement[] {
+  if (!Array.isArray(replacements)) {
+    throw new Error('AI response is not an array.')
   }
 
-  if (original.experience.length !== adapted.experience.length) {
-    throw new Error('AI integrity violation: experience entry count changed.')
-  }
-  original.experience.forEach((orig: ExperienceEntry, i: number) => {
-    const ad = adapted.experience[i]
-    if (orig.company !== ad.company || orig.role !== ad.role || orig.dates !== ad.dates || orig.location !== ad.location) {
-      throw new Error(
-        `AI integrity violation: protected fields changed in experience[${i}].`
-      )
-    }
-    if (orig.bullets.length !== ad.bullets.length) {
-      throw new Error(
-        `AI integrity violation: bullet count changed in experience[${i}].`
-      )
-    }
-  })
-
-  if (original.education.length !== adapted.education.length) {
-    throw new Error('AI integrity violation: education entry count changed.')
-  }
-  original.education.forEach((orig: EducationEntry, i: number) => {
-    const ad = adapted.education[i]
+  for (const item of replacements) {
     if (
-      orig.institution !== ad.institution ||
-      orig.degree !== ad.degree ||
-      orig.dates !== ad.dates ||
-      orig.location !== ad.location
+      typeof item !== 'object' ||
+      item === null ||
+      typeof item.old !== 'string' ||
+      typeof item.new !== 'string'
     ) {
-      throw new Error(
-        `AI integrity violation: protected fields changed in education[${i}].`
-      )
+      throw new Error('Each replacement must have "old" and "new" string fields.')
     }
-  })
-
-  if (original.fontFamily !== adapted.fontFamily) {
-    throw new Error('AI integrity violation: fontFamily was modified.')
+    if (!resumeText.includes(item.old)) {
+      throw new Error(`Replacement "old" text not found in original resume: "${item.old.slice(0, 60)}..."`)
+    }
   }
+
+  return replacements as TextReplacement[]
 }
 
 let _client: GoogleGenAI | null = null
@@ -106,12 +74,12 @@ function getClient(): GoogleGenAI {
   return _client
 }
 
-export async function adaptResume(
-  originalResume: ResumeData,
+export async function getReplacements(
+  resumeText: string,
   jobDescription: string
-): Promise<ResumeData> {
+): Promise<TextReplacement[]> {
   const client = getClient()
-  const userMessage = buildUserMessage(originalResume, jobDescription)
+  const userMessage = buildUserMessage(resumeText, jobDescription)
 
   let responseText: string
   try {
@@ -140,11 +108,5 @@ export async function adaptResume(
     throw new Error('[Gemini Error] AI returned invalid JSON. Please retry.')
   }
 
-  if (!isResumeData(parsed)) {
-    throw new Error('[Gemini Error] AI response does not match expected schema.')
-  }
-
-  checkIntegrity(originalResume, parsed)
-
-  return parsed
+  return validateReplacements(resumeText, parsed)
 }

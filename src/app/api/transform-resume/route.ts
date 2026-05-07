@@ -1,8 +1,11 @@
-import { parseResume } from '@/lib/parseResume'
-import { adaptResume } from '@/lib/genAi'
-import { detectFont } from '@/lib/detectFont'
+import { extractText } from '@/lib/extractText'
+import { getReplacements } from '@/lib/genAi'
+import { applyToDocx, createDocxFromText } from '@/lib/applyReplacements'
 
 export const maxDuration = 60
+
+const DOCX_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
 
 export async function POST(request: Request): Promise<Response> {
   let formData: FormData
@@ -39,12 +42,9 @@ export async function POST(request: Request): Promise<Response> {
     )
   }
 
-  let parsedResume
+  let extracted
   try {
-    const arrayBuffer = await resumeFile.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-    parsedResume = await parseResume(resumeFile)
-    parsedResume.fontFamily = detectFont(buffer)
+    extracted = await extractText(resumeFile)
   } catch (err) {
     return Response.json(
       {
@@ -55,22 +55,40 @@ export async function POST(request: Request): Promise<Response> {
     )
   }
 
-  let adaptedResume
+  let replacements
   try {
-    adaptedResume = await adaptResume(parsedResume, jobDescription.trim())
+    replacements = await getReplacements(extracted.text, jobDescription.trim())
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'AI service error.'
-    if (message.includes('integrity violation')) {
-      return Response.json(
-        { success: false, error: 'AI attempted to modify protected fields. Please retry.' },
-        { status: 502 }
-      )
-    }
     return Response.json(
-      { success: false, error: message },
+      {
+        success: false,
+        error: err instanceof Error ? err.message : 'AI service error.',
+      },
       { status: 502 }
     )
   }
 
-  return Response.json({ success: true, data: adaptedResume })
+  let outputBuffer: Buffer
+  try {
+    if (extracted.fileType === 'docx') {
+      outputBuffer = await applyToDocx(extracted.buffer, replacements)
+    } else {
+      outputBuffer = await createDocxFromText(extracted.text, replacements)
+    }
+  } catch (err) {
+    return Response.json(
+      {
+        success: false,
+        error: err instanceof Error ? err.message : 'Failed to generate document.',
+      },
+      { status: 500 }
+    )
+  }
+
+  return new Response(new Uint8Array(outputBuffer), {
+    headers: {
+      'Content-Type': DOCX_CONTENT_TYPE,
+      'Content-Disposition': 'attachment; filename="adapted-resume.docx"',
+    },
+  })
 }
