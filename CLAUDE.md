@@ -7,6 +7,7 @@ A Next.js application that adapts resumes to job descriptions using Google Verte
 - **File Handling:** `pdf-parse` (PDF text extraction), `mammoth` (DOCX text extraction)
 - **Document Editing:** `jszip` (in-place DOCX XML editing), `docx` (generate DOCX from PDF input)
 - **Infrastructure:** Google Cloud Run + GitHub Actions
+- **Styling/Design** Shadcn
 
 ## Architecture
 ```

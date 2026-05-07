@@ -4,7 +4,6 @@ import {
   Packer,
   Paragraph,
   TextRun,
-  HeadingLevel,
   AlignmentType,
 } from 'docx'
 import type { TextReplacement } from './genAi'
@@ -137,8 +136,7 @@ export async function createDocxFromText(
     } else if (SECTION_HEADERS.test(line)) {
       paragraphs.push(
         new Paragraph({
-          text: line.toUpperCase(),
-          heading: HeadingLevel.HEADING_2,
+          children: [new TextRun({ text: line.toUpperCase(), bold: true, size: 22, font: 'Calibri' })],
           spacing: { before: 240, after: 120 },
           border: { bottom: { color: '000000', space: 1, size: 6, style: 'single' as const } },
         })
@@ -164,6 +162,11 @@ export async function createDocxFromText(
   }
 
   const doc = new Document({
+    styles: {
+      default: {
+        document: { run: { font: 'Calibri', size: 20 } },
+      },
+    },
     sections: [{ children: paragraphs }],
   })
 
